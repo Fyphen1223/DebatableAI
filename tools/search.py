@@ -34,7 +34,6 @@ async def searchWebOrganic(query: str, num_results: int = 5):
         },
     }
     headers = {
-        "Authorization": f"Bearer {os.getenv('FIRECRAWL_API_KEY')}",
         "Content-Type": "application/json",
     }
     response = requests.post(url, json=payload, headers=headers)

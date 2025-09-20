@@ -34,9 +34,10 @@ async def main():
         nlp_service=p.NLPServices.gemini,
         session_store="local",  # Change this to your desired model
     ) as server:
+        print(await searchWebOrganic("fyphen"))
         agent = await server.create_agent(
             name="Mr.D",
-            description="You are a skilled and well-trained debater. You focus on presenting logical arguments, counterarguments, researching papers.\nUse the same language as the user. Be as concise as possible.",
+            description="You are a skilled and well-trained debater. You focus on presenting logical arguments, counterarguments, researching papers.\nUse the same language as the user. Be extremely concise.",
         )
         await agent.attach_tool(condition=searchCondition, tool=scrapeWeb)
         await add_domain_glossary(agent)
