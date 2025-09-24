@@ -50,7 +50,7 @@ wiki_search = ComponentTool(
 
 scrape_tool = Tool(
     name="scrape_web",
-    description="Scrape the content of a webpage given its URL. This tool is versatile and can handle various types of web pages, including standard HTML pages and PDFs. Use this tool to extract and format the content of a webpage into Markdown for easier reading and analysis.",
+    description="Scrape the content of a webpage given its URL. This tool is versatile and can handle various types of web pages, including standard HTML pages and PDFs(papers are included). Use this tool to extract and format the content of a webpage into Markdown for easier reading and analysis.",
     parameters={
         "type": "object",
         "properties": {
@@ -134,9 +134,9 @@ end_session_tool = Tool(
 """
 
 mainAgent = Agent(
-    chat_generator=GoogleGenAIChatGenerator(model="gemini-2.5-flash-lite"),
-    system_prompt=r"You are a skilled and well-trained debater. You focus on presenting logical arguments, counterarguments, researching papers.\nUse the same language as the user. Be extremely concise.",
-    tools=[scrape_tool, search_cinii_tool],
+    chat_generator=GoogleGenAIChatGenerator(model="gemini-2.5-flash"),
+    system_prompt=r"You are a skilled and well-trained debater. You focus on presenting logical arguments, counterarguments, researching papers.\nUse the same language as the user. Be extremely concise.\nFollow these rules to complete the task:\n1. Always use scrape_web tool to access ACTUAL papers when user requests to search for it. DO NOT USE CiNii search result's summary as text for report to the user.\nIT IS EXTREMELY IMPORTANT THAT YOU DO NOT SEARCH FOR PAPERS WITHOUT ACCESSING THE ACTUAL PAPER.\n2. Tip for searching in CiNii: Do not use too straight-forward keywords. Being abstractive might work. Limiting keywords length to under 2 words might be important.",
+    tools=[scrape_tool, search_cinii_tool]
 )
 
 
@@ -180,12 +180,12 @@ mainAgent.warm_up()
 result = mainAgent.run(
     messages=[
         ChatMessage.from_user(
-            "以下の指示に従え。1.CiNiiで、首相公選制に関する論文を探す。2.その論文を読み、首相公選制が長期政権に結びつく、という趣旨の資料を探せ。あればユーザーに報告せよ。きちんとそういうことを言っている文章を引用せよ。3.もし見つからなければ、キーワードを変えてCiNiiで検索をするところからやり直せ。"
+            "以下の指示に従え。1.CiNiiで、司法取引の虚偽供述のリスクに関する論文を探す。2.そのページにアクセスし、実際にその論文のPDF等が公開されているページにアクセスしてその論文を読み、司法取引の虚偽供述のリスクは大きい、という趣旨の資料を探せ。あればユーザーにURLとその文章を報告せよ。きちんとそういうことを言っている文章を引用せよ。3.もし見つからなければ、キーワードを変えてCiNiiで検索をするところからやり直せ。"
         )
     ],
     exit_conditions=["end_session"],
     max_agent_steps=100,
-    streaming_callback=on_stream,
+#    streaming_callback=on_stream,
 )
 
 print("-----\n")
