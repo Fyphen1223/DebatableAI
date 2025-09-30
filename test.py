@@ -1,13 +1,7 @@
-from tools.search import search, scrape, searchCiNii
-import asyncio
+from haystack_integrations.tools.mcp import MCPToolset, StreamableHttpServerInfo
 
+server_info = StreamableHttpServerInfo(url="http://localhost:8931/mcp")
 
-async def main():
-    print(
-        await scrape(
-            "https://www.jstage.jst.go.jp/article/pacjpa/87/0/87_1B-055-PE/_pdf"
-        )
-    )
+toolset = MCPToolset(server_info=server_info, tool_names=["browser_navigate"])
 
-
-asyncio.run(main())
+print(toolset.tools)

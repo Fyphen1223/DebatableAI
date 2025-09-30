@@ -106,6 +106,43 @@ def searchCiNii(query: str, num_results: int = 10):
         return format_cinii_results(response.json())
 
 
+def searchCORE(query: str, num_results: int = 10):
+    """Perform a search on CORE and return a list of result URLs.
+
+    Returns:
+                                    list[str]: list of result URLs (length <= num_results).
+                                    If an error occurs, returns a single-item list with an error message.
+    """
+    encoded_query = quote(query, safe="")
+    url = f"https://api.core.ac.uk/v3/search/works?query={encoded_query}&page=1&pageSize={num_results}&apiKey={os.getenv('CORE_API_KEY')}"
+    print("[Tool: searchCORE] Searching CORE with URL:", url)
+    response = requests.get(url)
+    if response.status_code != 200:
+        return [f"Error: Received status code {response.status_code} from CORE"]
+    else:
+        results = response.json().get("results", [])
+        if not results:
+            return ["No relevant papers found."]
+        papers_list = []
+        for item in results:
+            title = item.get("title", "No title")
+            link = item.get("fullTextUrl", ["No link"])[0]
+            authors = item.get("authors", ["No authors"])
+            authors_str = ", ".join(authors) if isinstance(authors, list) else authors
+            publication_date = item.get("publishedDate", "No date")
+            description = item.get("abstract", "No abstract")
+
+            paper_info = (
+                f"Title: {title}\n"
+                f"Authors: {authors_str}\n"
+                f"Publication Date: {publication_date}\n"
+                f"Link: {link}\n"
+                f"Summary: {description}"
+            )
+            papers_list.append(paper_info)
+        return "\n\n---\n\n".join(papers_list)
+
+
 def rotateProxy():
     # Placeholder for future proxy rotation logic.
     return None

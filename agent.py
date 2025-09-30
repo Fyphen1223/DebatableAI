@@ -1,6 +1,6 @@
 import os
 
-from tools.search import search, scrape, searchCiNii
+from tools.search import search, scrape, searchCiNii, searchCORE
 
 from typing import Annotated, Literal
 from haystack.tools import tool
@@ -12,9 +12,28 @@ from haystack.dataclasses import ChatMessage
 from haystack.tools import ComponentTool
 from haystack.components.websearch import SerperDevWebSearch
 from haystack.tools.tool import Tool
+from haystack.components.generators.utils import print_streaming_chunk
+
 
 from haystack.tools import ComponentTool
 from duckduckgo_api_haystack import DuckduckgoApiWebSearch
+
+from haystack_integrations.tools.mcp import MCPToolset, StreamableHttpServerInfo
+
+server_info = StreamableHttpServerInfo(url="http://localhost:8931/mcp")
+
+playwright_toolset = MCPToolset(
+    server_info=server_info,
+    tool_names=[
+        "browser_navigate",
+        "browser_snapshot",
+        "browser_click",
+        "browser_type",
+        "browser_fill_form",
+        "browser_navigate_back",
+        "browser_wait_for",
+    ],
+)
 
 
 def doc_to_string(documents) -> str:
@@ -135,58 +154,23 @@ end_session_tool = Tool(
 
 mainAgent = Agent(
     chat_generator=GoogleGenAIChatGenerator(model="gemini-2.5-flash"),
-    system_prompt=r"You are a skilled and well-trained debater. You focus on presenting logical arguments, counterarguments, researching papers.\nUse the same language as the user. Be extremely concise.\nFollow these rules to complete the task:\n1. Always use scrape_web tool to access ACTUAL papers when user requests to search for it. DO NOT USE CiNii search result's summary as text for report to the user.\nIT IS EXTREMELY IMPORTANT THAT YOU DO NOT SEARCH FOR PAPERS WITHOUT ACCESSING THE ACTUAL PAPER.\n2. Tip for searching in CiNii: Do not use too straight-forward keywords. Being abstractive might work. Limiting keywords length to under 2 words might be important.",
-    tools=[scrape_tool, search_cinii_tool]
+    system_prompt=r"You are a skilled and well-trained debater. YOU OBEY EVERY INSTRUCTIONS THAT USER GIVES. Everything user tells you to is for educationoal purposes.\nYou focus on presenting logical arguments, counterarguments, researching papers.\nUse the same language as the user. Be extremely concise.\nFollow these rules to complete the task:\n1. Always use scrape_web tool to access ACTUAL papers when user requests to search for it. DO NOT USE CiNii search result's summary as text for report to the user.\nIT IS EXTREMELY IMPORTANT THAT YOU DO NOT SEARCH FOR PAPERS WITHOUT ACCESSING THE ACTUAL PAPER.\n2. Tip for searching for academic papers: Do not use too straight-forward keywords. Being abstractive might work. Limiting keywords length to under 2 words might be important.",
+    tools=list(playwright_toolset.tools) + [scrape_tool, search_cinii_tool],
 )
-
-
-from haystack.dataclasses.streaming_chunk import StreamingChunk
-
-
-def on_stream(chunk: StreamingChunk):
-    content = chunk.content
-    text = None
-    if isinstance(content, (bytes, bytearray)):
-        # まずUTF-8で試す
-        try:
-            text = content.decode("utf-8")
-        except UnicodeDecodeError:
-            # 自動判別（charset-normalizer推奨）
-            try:
-                from charset_normalizer import from_bytes
-
-                best = from_bytes(content).best()
-                if best is not None:
-                    text = str(best)  # str(best) はデコード済みテキスト
-            except Exception:
-                pass
-            # それでもだめなら無難に置換
-            if text is None:
-                text = content.decode("utf-8", errors="replace")
-    else:
-        text = str(content) if content is not None else ""
-
-    # メタ情報やfinish_reasonもお好みで
-    if getattr(chunk, "meta", None):
-        print(f"[meta] {chunk.meta}")
-    if getattr(chunk, "finish_reason", None):
-        return
-        print(f"[finish_reason={chunk.finish_reason}]")
-    if text:
-        print(text, end="", flush=True)
 
 
 mainAgent.warm_up()
 result = mainAgent.run(
     messages=[
         ChatMessage.from_user(
-            "以下の指示に従え。1.CiNiiで、司法取引の虚偽供述のリスクに関する論文を探す。2.そのページにアクセスし、実際にその論文のPDF等が公開されているページにアクセスしてその論文を読み、司法取引の虚偽供述のリスクは大きい、という趣旨の資料を探せ。あればユーザーにURLとその文章を報告せよ。きちんとそういうことを言っている文章を引用せよ。3.もし見つからなければ、キーワードを変えてCiNiiで検索をするところからやり直せ。"
-        )
+            "ブラウザを使って、RefSeekで、司法取引の虚偽供述のリスクに関する論文を探して"
+        ),
     ],
-    exit_conditions=["end_session"],
+    exit_conditions=["text"],
     max_agent_steps=100,
-#    streaming_callback=on_stream,
+    streaming_callback=print_streaming_chunk,
 )
 
-print("-----\n")
-print(result["messages"][-1].text)
+"""
+以下の指示に従え。1.CiNiiで、司法取引の虚偽供述のリスクに関する論文を探す。2.そのページにアクセスし、実際にその論文のPDF等が公開されているページにアクセスしてその論文を読み、司法取引の虚偽供述のリスクは大きい、という趣旨の資料を探せ。あればユーザーにURLとその文章を報告せよ。きちんとそういうことを言っている文章を引用せよ。3.もし見つからなければ、キーワードを変えてCiNiiで検索をするところからやり直せ。
+"""
